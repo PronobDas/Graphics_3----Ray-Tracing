@@ -34,8 +34,10 @@ struct point
     }
 };
 
+
 point pos;
 point u, r, l;
+
 
 double dotMul(point a, point b)
 {
@@ -43,6 +45,7 @@ double dotMul(point a, point b)
     result = a.x * b.x + a.y * b.y + a.z * b.z;
     return  result;
 }
+
 
 point crossMul(point a, point b)
 {
@@ -53,6 +56,7 @@ point crossMul(point a, point b)
     return result;
 }
 
+
 void drawAxes()
 {
 	if(drawaxes==1)
@@ -60,16 +64,16 @@ void drawAxes()
 
 		glBegin(GL_LINES);{
 		    glColor3f(1.0, 0, 0);
-			glVertex3f( 400,0,0);
-			glVertex3f(-400,0,0);
+			glVertex3f( 1000,0,0);
+			glVertex3f(-1000,0,0);
 
 			glColor3f(0, 1.0, 0);
-			glVertex3f(0,-400,0);
-			glVertex3f(0, 400,0);
+			glVertex3f(0,-1000,0);
+			glVertex3f(0, 1000,0);
 
 			glColor3f(0, 0, 1.0);
-			glVertex3f(0,0, 400);
-			glVertex3f(0,0,-400);
+			glVertex3f(0,0, 1000);
+			glVertex3f(0,0,-1000);
 		}glEnd();
 	}
 }
@@ -99,6 +103,7 @@ void drawGrid()
 	}
 }
 
+
 void drawLine()
 {
     glBegin(GL_LINES);{
@@ -107,9 +112,12 @@ void drawLine()
     }glEnd();
 }
 
+
+int b = 1;
 void drawSquare(double a)
 {
-    //glColor3f(1.0,1.0,0.0);
+    b = 1 - b;
+    glColor3f(b, b, b);
 	glBegin(GL_QUADS);{
 		glVertex3f( a, a,2);
 		glVertex3f( a,-a,2);
@@ -131,6 +139,7 @@ void drawSquare(double a)
 		glVertex3f(-a, a,2);
 	}glEnd();*/
 }
+
 
 void drawCircle(double radius,int segments)
 {
@@ -155,6 +164,7 @@ void drawCircle(double radius,int segments)
     }
 }
 
+
 void drawBubble(double x, double y, double radius)
 {
     int i;
@@ -177,6 +187,7 @@ void drawBubble(double x, double y, double radius)
         glEnd();
     }
 }
+
 
 void drawCone(double radius,double height,int segments)
 {
@@ -208,7 +219,7 @@ void drawCone(double radius,double height,int segments)
 }
 
 
-void drawSphere1(double radius,int slices,int stacks)
+void drawSphere(double radius,int slices,int stacks)
 {
 	struct point points[100][100];
 	int i,j;
@@ -241,94 +252,6 @@ void drawSphere1(double radius,int slices,int stacks)
 				glVertex3f(points[i][j+1].x,points[i][j+1].y,points[i][j+1].z);
 				glVertex3f(points[i+1][j+1].x,points[i+1][j+1].y,points[i+1][j+1].z);
 				glVertex3f(points[i+1][j].x,points[i+1][j].y,points[i+1][j].z);
-                //lower hemisphere
-                //glVertex3f(points[i][j].x,points[i][j].y,-points[i][j].z);
-				//glVertex3f(points[i][j+1].x,points[i][j+1].y,-points[i][j+1].z);
-				//glVertex3f(points[i+1][j+1].x,points[i+1][j+1].y,-points[i+1][j+1].z);
-				//glVertex3f(points[i+1][j].x,points[i+1][j].y,-points[i+1][j].z);
-			}glEnd();
-		}
-	}
-}
-
-
-void drawSphere2(double radius,int slices,int stacks)
-{
-	struct point points[100][100];
-	int i,j;
-	double h,r;
-	int a = 1;
-	//generate points
-	for(i=0;i<=stacks;i++)
-	{
-		h=radius*sin(((double)i/(double)stacks)*(pi/2));
-		r=radius*cos(((double)i/(double)stacks)*(pi/2));
-		for(j=0;j<=slices;j++)
-		{
-			points[i][j].x=r*cos(((double)j/(double)slices)*2*pi);
-			points[i][j].y=r*sin(((double)j/(double)slices)*2*pi);
-			points[i][j].z=h;
-		}
-	}
-	//draw quads using generated points
-	for(i=0;i<stacks;i++)
-	{
-        //glColor3f((double)i/(double)stacks,(double)i/(double)stacks,(double)i/(double)stacks);
-		for(j=0;j<slices;j++)
-		{
-		    glColor3f(1-a,1-a,1-a);
-		    a = 1 - a;
-			glBegin(GL_QUADS);{
-			    //upper hemisphere
-				//glVertex3f(points[i][j].x,points[i][j].y,points[i][j].z);
-				//glVertex3f(points[i][j+1].x,points[i][j+1].y,points[i][j+1].z);
-				//glVertex3f(points[i+1][j+1].x,points[i+1][j+1].y,points[i+1][j+1].z);
-				//glVertex3f(points[i+1][j].x,points[i+1][j].y,points[i+1][j].z);
-                //lower hemisphere
-                glVertex3f(points[i][j].x,points[i][j].y,-points[i][j].z);
-				glVertex3f(points[i][j+1].x,points[i][j+1].y,-points[i][j+1].z);
-				glVertex3f(points[i+1][j+1].x,points[i+1][j+1].y,-points[i+1][j+1].z);
-				glVertex3f(points[i+1][j].x,points[i+1][j].y,-points[i+1][j].z);
-			}glEnd();
-		}
-	}
-}
-
-
-void drawSphere3(double radius,int slices,int stacks)
-{
-	struct point points[100][100];
-	int i,j;
-	double h,r;
-	int a = 1;
-	//generate points
-	for(i=0;i<=stacks;i++)
-	{
-		h=radius*sin(((double)i/(double)stacks)*(pi/2));
-		r=radius*cos(((double)i/(double)stacks)*(pi/2));
-		r = 2 *radius - r;
-		for(j=0;j<=slices;j++)
-		{
-			points[i][j].x=r*cos(((double)j/(double)slices)*2*pi);
-			points[i][j].y=r*sin(((double)j/(double)slices)*2*pi);
-			points[i][j].z=h;
-		}
-	}
-	//draw quads using generated points
-	for(i=0;i<stacks;i++)
-	{
-        //glColor3f((double)i/(double)stacks,(double)i/(double)stacks,(double)i/(double)stacks);
-
-		for(j=0;j<slices;j++)
-		{
-		    glColor3f(1-a,1-a,1-a);
-		    a = 1 - a;
-			glBegin(GL_QUADS);{
-			    //upper hemisphere
-				//glVertex3f(points[i][j].x,points[i][j].y,points[i][j].z);
-				//glVertex3f(points[i][j+1].x,points[i][j+1].y,points[i][j+1].z);
-				//glVertex3f(points[i+1][j+1].x,points[i+1][j+1].y,points[i+1][j+1].z);
-				//glVertex3f(points[i+1][j].x,points[i+1][j].y,points[i+1][j].z);
                 //lower hemisphere
                 glVertex3f(points[i][j].x,points[i][j].y,-points[i][j].z);
 				glVertex3f(points[i][j+1].x,points[i][j+1].y,-points[i][j+1].z);
@@ -376,6 +299,7 @@ void drawCylinder(double radius, double height, int slices,int stacks)
 		}
 	}
 }
+
 
 void myDraw()
 {
@@ -597,7 +521,6 @@ void display(){
 	//gluLookAt(100,100,100,	0,0,0,	0,0,1);
 	//gluLookAt(200*cos(cameraAngle), 200*sin(cameraAngle), cameraHeight,		0,0,0,		0,0,1);
 	gluLookAt(pos.x,pos.y,pos.z,	pos.x+l.x, pos.y+l.y, pos.z+l.z,	u.x,u.y,u.z);
-//	cout << pos.x <<" "<<pos.y<<" "<<pos.z<<" "<<l.x<<" "<<l.y<<" "<<l.z<<" "<<u.x<<" "<<u.y<<" "<<u.z<< " "<<r.x<<" "<<r.y<<" "<<r.z << endl;
 
 	//again select MODEL-VIEW
 	glMatrixMode(GL_MODELVIEW);
@@ -610,53 +533,32 @@ void display(){
 
 	drawAxes();
 	//drawGrid();
+	drawSphere(50, 50, 50);
+	drawSquare(100);
 
 	//drawLine();
-    glColor3f(0,1,0);
+    //glColor3f(0,1,0);
     //drawSquare(120);
-
     //drawSS();
     //drawSphere(30,24,20);
-    myDraw();
+    //myDraw();
 
 
-    glColor3f(1,0,0);
+    //glColor3f(1,0,0);
     //drawCircle(85, 36);
     //drawBubble(15, 36);
     //drawBubbles();
-
-
-
     //drawCone(20,50,24);
-
-
-
 
 	//ADD this line in the end --- if you use double buffer (i.e. GL_DOUBLE)
 	glutSwapBuffers();
 }
 
 
-/*void speedController()
-{
-    for (int i = 0; i < 3; i++)
-    {
-        speed[i].x = (i+1)*0.02/5;
-        speed[i].y = (i+1)*0.03/5;
-    }
-
-    speed[3].x = 0.01;
-    speed[3].y = 0.02;
-
-    speed[4].x = 0.02;
-    speed[4].y = 0.01;
-}*/
-
 void animate(){
 	//angle+=0.02;
 	//codes for any changes in Models, Camera
 	glutPostRedisplay();
-	//speedController();
 }
 
 
