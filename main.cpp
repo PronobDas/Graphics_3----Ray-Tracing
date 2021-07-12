@@ -1,12 +1,16 @@
 #include<stdio.h>
 #include<stdlib.h>
 #include<math.h>
-
 #include <windows.h>
 #include <GL/glut.h>
 
 #define pi (2*acos(0.0))
 #include <iostream>
+#include <fstream>
+#include <vector>
+
+#include "classes.h"
+#include "bitmap_image.hpp"
 using namespace std;
 
 double cameraHeight;
@@ -15,29 +19,15 @@ int drawgrid;
 int drawaxes;
 double angle1, angle2, angle3, angle4;
 
-
-struct point
-{
-	double x,y,z;
-
-	point operator+(point p)
-	{
-	    return {x+p.x, y+p.y, z+p.z};
-    }
-    point operator-(point p)
-	{
-	    return {x-p.x, y-p.y, z-p.z};
-    }
-    point operator*(double n)
-	{
-	    return {x*n, y*n, z*n};
-    }
-};
+//Object *obj;
+vector<Object*> objects;
+vector<Light*> lights;
 
 
 point pos;
 point u, r, l;
-
+int levelOfRec, pixelsDimBoth, nObjects, nLightSrc;
+// pixelsDimBoth == imageWidth
 
 double dotMul(point a, point b)
 {
@@ -79,294 +69,79 @@ void drawAxes()
 }
 
 
-void drawGrid()
+void capture()
 {
-	int i;
-	if(drawgrid==1)
-	{
-		glColor3f(0.6, 0.6, 0.6);	//grey
-		glBegin(GL_LINES);{
-			for(i=-8;i<=8;i++){
-
-				if(i==0)
-					continue;	//SKIP the MAIN axes
-
-				//lines parallel to Y-axis
-				glVertex3f(i*10, -90, 0);
-				glVertex3f(i*10,  90, 0);
-
-				//lines parallel to X-axis
-				glVertex3f(-90, i*10, 0);
-				glVertex3f( 90, i*10, 0);
-			}
-		}glEnd();
-	}
-}
-
-
-void drawLine()
-{
-    glBegin(GL_LINES);{
-        glVertex3f(10,20,0);
-        glVertex3f(20,10,0);
-    }glEnd();
-}
-
-
-int b = 1;
-void drawSquare(double a)
-{
-    b = 1 - b;
-    glColor3f(b, b, b);
-	glBegin(GL_QUADS);{
-		glVertex3f( a, a,2);
-		glVertex3f( a,-a,2);
-		glVertex3f(-a,-a,2);
-		glVertex3f(-a, a,2);
-	}glEnd();
-
-	/*glBegin(GL_LINES);{
-		glVertex3f( a, a,2);
-		glVertex3f( a,-a,2);
-
-		glVertex3f( a, a,2);
-		glVertex3f(-a,a,2);
-
-		glVertex3f( a,-a,2);
-		glVertex3f(-a,-a,2);
-
-		glVertex3f(-a,-a,2);
-		glVertex3f(-a, a,2);
-	}glEnd();*/
-}
-
-
-void drawCircle(double radius,int segments)
-{
-    int i;
-    struct point points[100];
-    //glColor3f(0.7,0.7,0.7);
-    //generate points
-    for(i=0;i<=segments;i++)
+    cout << "capture called." << endl;
+    // Initializing image buffer and Background->black.
+    bitmap_image image(pixelsDimBoth, pixelsDimBoth);
+    for(int i = 0; i < pixelsDimBoth; i++)
     {
-        points[i].x=radius*cos(((double)i/(double)segments)*2*pi);
-        points[i].y=radius*sin(((double)i/(double)segments)*2*pi);
+        for (int j = 0; j < pixelsDimBoth; j++)
+            image.set_pixel(i,j,0, 0, 0);
     }
-    //draw segments using generated points
-    for(i=0;i<segments;i++)
+
+    double viewAngle = (pi/180)*80; //fovY = 80
+    double planeDistance = (500.0/2) / tan(viewAngle/2);
+    //cout << planeDistance<<endl;
+    point topLeft = pos + l * planeDistance - r * (500/2) + u * (500/2);
+    //topLeft.print();
+    double du = 500.0 / pixelsDimBoth;
+    double dv = 500.0 / pixelsDimBoth;
+
+    topLeft = topLeft + r * (0.5 * du) - u * (0.5 * dv);
+
+    for ( int i = 0; i < pixelsDimBoth; i++ )
     {
-        glBegin(GL_LINES);
+        for (int j = 0; j < pixelsDimBoth; j++)
         {
-			glVertex3f(points[i].x,points[i].y,0);
-			glVertex3f(points[i+1].x,points[i+1].y,0);
+            point corner = topLeft + r * (i * du) - u * (j * dv);
+
+            Vector eye(pos.x, pos.y, pos.z);
+            Vector d( (corner-pos).x , (corner-pos).y, (corner-pos).z ); // direction vector
+            d.normalize();
+
+            Ray ray(eye, d);
+
+            int nearest;
+            double t, tMin = 99999999;
+            double *color = new double[3];
+            nearest = -1;
+
+            for (int k = 0; k < objects.size(); k++ )
+            {
+                t = objects[k]->intersect(ray, color, 0);
+               // cout << "t: " << t << endl;
+                if (t <= 0)
+                    continue;
+                if (t < tMin)
+                {
+                    tMin = t;
+                    nearest = k;
+                }
+            }
+            if (nearest != -1)
+            {
+                tMin = objects[nearest]->intersect(ray, color, 1);
+            }
+
+            image.set_pixel(i,j, color[0] * 255, color[1] * 255, color[2] * 255);
+
+            //for (int i = 0; i < 3; i++)
+            //    delete color;
         }
-        glEnd();
     }
-}
+    image.save_image("E:\\L 4 T 1\\CSE 409 & 410 (Graphics)\\Offlines\\Offline3\\out.bmp");
 
 
-void drawBubble(double x, double y, double radius)
-{
-    int i;
-    struct point points[100];
-    //glColor3f(0.7,0.7,0.7);
-    //generate points
-    for(i=0;i<=36;i++)
-    {
-        points[i].x = x + radius*cos(((double)i/36)*2*pi);
-        points[i].y = y + radius*sin(((double)i/36)*2*pi);
-    }
-    //draw segments using generated points
-    for(i=0;i<36;i++)
-    {
-        glBegin(GL_LINES);
-        {
-			glVertex3f(points[i].x,points[i].y,0);
-			glVertex3f(points[i+1].x,points[i+1].y,0);
-        }
-        glEnd();
-    }
-}
-
-
-void drawCone(double radius,double height,int segments)
-{
-    int i;
-    double shade;
-    struct point points[100];
-    //generate points
-    for(i=0;i<=segments;i++)
-    {
-        points[i].x=radius*cos(((double)i/(double)segments)*2*pi);
-        points[i].y=radius*sin(((double)i/(double)segments)*2*pi);
-    }
-    //draw triangles using generated points
-    for(i=0;i<segments;i++)
-    {
-        //create shading effect
-        if(i<segments/2)shade=2*(double)i/(double)segments;
-        else shade=2*(1.0-(double)i/(double)segments);
-        glColor3f(shade,shade,shade);
-
-        glBegin(GL_TRIANGLES);
-        {
-            glVertex3f(0,0,height);
-			glVertex3f(points[i].x,points[i].y,0);
-			glVertex3f(points[i+1].x,points[i+1].y,0);
-        }
-        glEnd();
-    }
-}
-
-
-void drawSphere(double radius,int slices,int stacks)
-{
-	struct point points[100][100];
-	int i,j;
-	double h,r;
-	int a = 1;
-	//generate points
-	for(i=0;i<=stacks;i++)
-	{
-		h=radius*sin(((double)i/(double)stacks)*(pi/2));
-		r=radius*cos(((double)i/(double)stacks)*(pi/2));
-		for(j=0;j<=slices;j++)
-		{
-			points[i][j].x=r*cos(((double)j/(double)slices)*2*pi);
-			points[i][j].y=r*sin(((double)j/(double)slices)*2*pi);
-			points[i][j].z=h;
-		}
-	}
-	//draw quads using generated points
-	for(i=0;i<stacks;i++)
-	{
-        //glColor3f((double)i/(double)stacks,(double)i/(double)stacks,(double)i/(double)stacks);
-
-		for(j=0;j<slices;j++)
-		{
-		    glColor3f(1-a,1-a,1-a);
-		    a = 1 - a;
-			glBegin(GL_QUADS);{
-			    //upper hemisphere
-				glVertex3f(points[i][j].x,points[i][j].y,points[i][j].z);
-				glVertex3f(points[i][j+1].x,points[i][j+1].y,points[i][j+1].z);
-				glVertex3f(points[i+1][j+1].x,points[i+1][j+1].y,points[i+1][j+1].z);
-				glVertex3f(points[i+1][j].x,points[i+1][j].y,points[i+1][j].z);
-                //lower hemisphere
-                glVertex3f(points[i][j].x,points[i][j].y,-points[i][j].z);
-				glVertex3f(points[i][j+1].x,points[i][j+1].y,-points[i][j+1].z);
-				glVertex3f(points[i+1][j+1].x,points[i+1][j+1].y,-points[i+1][j+1].z);
-				glVertex3f(points[i+1][j].x,points[i+1][j].y,-points[i+1][j].z);
-			}glEnd();
-		}
-	}
-}
-
-
-void drawCylinder(double radius, double height, int slices,int stacks)
-{
-	struct point points[100][100];
-	int i,j;
-	double h,r;
-	int a = 1;
-	//generate points
-	for(i=0;i<=stacks;i++)
-	{
-		h=height*i/stacks;// radius*sin(((double)i/(double)stacks)*(pi/2));
-		r=radius ; //*cos(((double)i/(double)stacks)*(pi/2));
-		for(j=0;j<=slices;j++)
-		{
-			points[i][j].x=r*cos(((double)j/(double)slices)*2*pi);
-			points[i][j].y=r*sin(((double)j/(double)slices)*2*pi);
-			points[i][j].z=h;
-		}
-	}
-	//draw quads using generated points
-	for(i=0;i<stacks;i++)
-	{
-        glColor3f((double)i/(double)stacks,(double)i/(double)stacks,(double)i/(double)stacks);
-		for(j=0;j<slices;j++)
-		{
-		    glColor3f(1-a,1-a,1-a);
-		    a = 1 - a;
-			glBegin(GL_QUADS);{
-			    //upper hemisphere
-				glVertex3f(points[i][j].x,points[i][j].y,points[i][j].z);
-				glVertex3f(points[i][j+1].x,points[i][j+1].y,points[i][j+1].z);
-				glVertex3f(points[i+1][j+1].x,points[i+1][j+1].y,points[i+1][j+1].z);
-				glVertex3f(points[i+1][j].x,points[i+1][j].y,points[i+1][j].z);
-			}glEnd();
-		}
-	}
-}
-
-
-void myDraw()
-{
-    glPushMatrix();
-    {
-        glRotatef(angle1, 0,0,1);
-
-        glColor3f(0, 1, 0.5);
-        glRotatef(90, 1,0,0);
-        drawSphere1(35, 100, 50); // left sphere of the gun
-
-        glRotatef(angle2, 1,0,0);
-
-        drawSphere2(35, 100, 50); // right sphere of the gun
-
-        glTranslatef(0, 0, -50);
-
-        glRotatef(angle3, 1,0,0);
-        glRotatef(angle4, 0,0,1);
-        drawSphere1(15, 36, 36);  // connector of sphere and cylinder
-
-        glTranslatef(0, 0, -100);
-        drawCylinder(15,100, 36, 36);
-
-        drawSphere3(15, 36, 36);  // head of the cylinder
-    }
-    glPopMatrix();
-
-
-    glTranslatef(0, 300, 0);
-    glRotatef(90, 1,0,0);
-    drawSquare(50);
-
-}
-
-
-void drawSS()
-{
-    glColor3f(1,0,0);
-    drawSquare(20);
-
-    glRotatef(angle1,0,0,1);
-    glTranslatef(110,0,0);
-    glRotatef(2*angle1,0,0,1);
-    glColor3f(0,1,0);
-    drawSquare(15);
-
-    glPushMatrix();
-    {
-        glRotatef(angle1,0,0,1);
-        glTranslatef(60,0,0);
-        glRotatef(2*angle1,0,0,1);
-        glColor3f(0,0,1);
-        drawSquare(10);
-    }
-    glPopMatrix();
-
-    glRotatef(3*angle1,0,0,1);
-    glTranslatef(40,0,0);
-    glRotatef(4*angle1,0,0,1);
-    glColor3f(1,1,0);
-    drawSquare(5);
 }
 
 
 void keyboardListener(unsigned char key, int x,int y){
 	switch(key){
+	    case '0':
+            capture();
+            cout << "captured." << endl;
+            break;
 
 		case '1':
 			drawgrid=1-drawgrid;
@@ -394,40 +169,6 @@ void keyboardListener(unsigned char key, int x,int y){
             u = u * cos(pi/180) - crossMul(l,u)* sin(pi/180);
 			r = r * cos(pi/180) - crossMul(l,r)* sin(pi/180);
             break;
-        case 'q':
-            if (angle1 < 45)
-                angle1 += 1;
-            break;
-        case 'w':
-            if (angle1 > -45)
-                angle1 -= 1;
-            break;
-
-        case 'e':
-            if (angle2 < 45)
-                angle2 += 1;
-            break;
-        case 'r':
-            if (angle2 > -45)
-                angle2 -= 1;
-            break;
-        case 'a':
-            if (angle3 < 45)
-                angle3 += 1;
-            break;
-        case 's':
-            if (angle3 > -45)
-                angle3 -= 1;
-            break;
-        case 'd':
-            if (angle4 > -30)
-                angle4 -= 1;
-            break;
-        case 'f':
-            if (angle4 < 30)
-                angle4 += 1;
-            break;
-
 		default:
 			break;
 	}
@@ -532,17 +273,19 @@ void display(){
 	//add objects
 
 	drawAxes();
+	//objects[0]->draw();
+	for (int i = 0; i < objects.size(); i++){
+        objects[i]->draw();
+	}
+
+	for (int j = 0; j < lights.size(); j++){
+        lights[j]->draw();
+	}
+
+//	cout << obj->length;
 	//drawGrid();
-	drawSphere(50, 50, 50);
-	drawSquare(100);
-
-	//drawLine();
-    //glColor3f(0,1,0);
-    //drawSquare(120);
-    //drawSS();
-    //drawSphere(30,24,20);
-    //myDraw();
-
+	//drawSphere(50, 50, 50);
+	//drawSquare(100);
 
     //glColor3f(1,0,0);
     //drawCircle(85, 36);
@@ -556,7 +299,6 @@ void display(){
 
 
 void animate(){
-	//angle+=0.02;
 	//codes for any changes in Models, Camera
 	glutPostRedisplay();
 }
@@ -589,9 +331,6 @@ void init(){
 	pos.y = 100;
 	pos.z = 0;
 
-
-
-
 	//clear the screen
 	glClearColor(0,0,0,0);
 
@@ -613,15 +352,117 @@ void init(){
 }
 
 
+void loadData(){
+    ifstream scene;
+    scene.open("E:\\L 4 T 1\\CSE 409 & 410 (Graphics)\\Offlines\\Offline3\\scene.txt");
+
+    scene >> levelOfRec >> pixelsDimBoth >> nObjects;
+
+
+    while ( nObjects-- )
+    {
+        string cmd;
+        scene >> cmd;
+        if ( cmd == "sphere" )
+        {
+            cout << "sphere" << endl;
+            double centerX, centerY, centerZ, radius;
+            double R, G, B;
+            double ambient, diffuse, specular, recRefCoef, shininess;
+            scene >> centerX >> centerY >> centerZ >> radius;
+            scene >> R >> G >> B;
+            scene >> ambient >> diffuse >> specular >> recRefCoef >> shininess;
+            //cout << shininess << endl;
+
+            Object *obj = new Sphere(Vector(centerX, centerY, centerZ), radius);
+            obj->setColor(R, G, B);
+            obj->setCoEfficients(ambient, diffuse, specular, recRefCoef);
+            obj->setShininess(shininess);
+            objects.push_back(obj);
+
+        }
+        else if ( cmd == "triangle" )
+        {
+            cout << "triangle" << endl;
+            double x1, y1, z1,  x2, y2, z2,  x3, y3, z3;
+            double R, G, B;
+            double ambient, diffuse, specular, recRefCoef, shininess;
+            scene >> x1 >> y1 >> z1;
+            scene >> x2 >> y2 >> z2;
+            scene >> x3 >> y3 >> z3;
+            scene >> R >> G >> B;
+            scene >> ambient >> diffuse >> specular >> recRefCoef >> shininess;
+            //cout << shininess << endl;
+
+            Object *obj = new Triangle(Vector(x1, y1, z1), Vector(x2, y2, z2), Vector(x3, y3, z3));
+            obj->setColor(R, G, B);
+            obj->setCoEfficients(ambient, diffuse, specular, recRefCoef);
+            obj->setShininess(shininess);
+            objects.push_back(obj);
+
+        }
+        else if ( cmd == "general" )
+        {
+            cout << "general" << endl;
+            double A, B, C, D, E, F, G, H, I, J;
+            double crpX, crpY, crpZ, length, width, height;
+            double cR, cG, cB;
+            double ambient, diffuse, specular, recRefCoef, shininess;
+            scene >> A >> B >> C >> D >> E >> F >> G >> H >> I >> J;
+            scene >> crpX >> crpY >> crpZ >> length >> width >> height;
+            scene >> cR >> cG >> cB;
+            scene >> ambient >> diffuse >> specular >> recRefCoef >> shininess;
+            //cout << shininess << endl;
+            Vector crp(crpX, crpY, crpZ);
+            Object *obj = new General(A, B, C, D, E, F, G, H, I, J);
+            obj->setRefferencePoint(crp);
+            obj->setHWL(height, width, length);
+            obj->setColor(cR, cG, cB);
+            obj->setCoEfficients(ambient, diffuse, specular, recRefCoef);
+            obj->setShininess(shininess);
+            objects.push_back(obj);
+        }
+    }
+
+
+    scene >> nLightSrc;
+    while ( nLightSrc-- )
+    {
+        double posX, posY, posZ;
+        double R, G, B;
+
+        scene >> posX >> posY >> posZ;
+        scene >> R >> G >> B;
+
+        Light *light= new Light(Vector(posX, posY, posZ), R, G, B);
+        lights.push_back(light);
+    }
+
+    scene.close();
+
+    //Floor object
+    Object *floor = new Floor(100, 20);
+    floor->setCoEfficients(0.4, 0.2, 0.2, 0.2);
+    floor->setShininess(1);
+    floor->setColor(0, 0.5, 0.5);
+    objects.push_back(floor);
+}
+
+
 int main(int argc, char **argv){
+    loadData();
+    //testData();
+    //cout << objects.size();
 	glutInit(&argc,argv);
 	glutInitWindowSize(500, 500);
 	glutInitWindowPosition(0, 0);
 	glutInitDisplayMode(GLUT_DEPTH | GLUT_DOUBLE | GLUT_RGB);	//Depth, Double buffer, RGB color
 
-	glutCreateWindow("Task 3");
+	glutCreateWindow("Assignment 3");
+
 
 	init();
+
 
 	glEnable(GL_DEPTH_TEST);	//enable Depth Testing
 
@@ -634,7 +475,13 @@ int main(int argc, char **argv){
 
 	glutMainLoop();		//The main loop of OpenGL
 
-
+	//memory management.
+	for(int i = 0; i < objects.size(); i++)
+        delete objects[i];
+    for(int i = 0; i < lights.size(); i++)
+        delete lights[i];
 
 	return 0;
 }
+
+
